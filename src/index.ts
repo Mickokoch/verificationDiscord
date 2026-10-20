@@ -41,7 +41,7 @@ const service = new VerificationService(
     purge();
   },
   {
-    allowedDomain: config.allowedDomain,
+    allowedDomains: config.allowedDomains,
     codeTtlMs: config.codeTtlMs,
     codeMaxAttempts: config.codeMaxAttempts,
     resendCooldownMs: config.resendCooldownMs,

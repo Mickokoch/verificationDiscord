@@ -10,7 +10,7 @@ import type { LinkStore } from "./store.js";
 export type SendCode = (email: string, code: string) => Promise<void>;
 
 export interface VerificationLimits {
-  allowedDomain: string;
+  allowedDomains: readonly string[];
   codeTtlMs: number;
   codeMaxAttempts: number;
   resendCooldownMs: number;
@@ -60,7 +60,7 @@ export class VerificationService {
     if (this.isVerified(memberId)) return { ok: false, reason: "already_verified" };
 
     const email = normalizeEmail(rawEmail);
-    if (!isAllowedEmail(email, this.limits.allowedDomain)) return { ok: false, reason: "invalid_email" };
+    if (!isAllowedEmail(email, this.limits.allowedDomains)) return { ok: false, reason: "invalid_email" };
 
     const now = this.now();
     const day = dayKey(now);

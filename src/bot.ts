@@ -137,7 +137,7 @@ export class VerificationBot {
     const input = new TextInputBuilder()
       .setCustomId(ID.emailInput)
       .setLabel("Adresse étudiante")
-      .setPlaceholder(`prenom.nom@${this.config.allowedDomain}`)
+      .setPlaceholder(`prenom.nom@${this.config.allowedDomains[0]}`)
       .setStyle(TextInputStyle.Short)
       .setMaxLength(254)
       .setRequired(true);
@@ -157,7 +157,7 @@ export class VerificationBot {
     if (!result.ok) {
       const messages = {
         already_verified: "✅ Tu es déjà vérifié.",
-        invalid_email: `❌ Adresse invalide : elle doit se terminer par **@${this.config.allowedDomain}**.`,
+        invalid_email: `❌ Adresse invalide : elle doit se terminer par ${this.config.allowedDomains.map((domain) => `**@${domain}**`).join(" ou ")}.`,
         daily_limit: "⏳ Tu as atteint le nombre maximum de codes pour aujourd'hui. Réessaie demain.",
         mail_failed: "❌ Le mail n'a pas pu être envoyé. Réessaie dans quelques minutes, ou préviens un modérateur.",
         cooldown: `⏳ Attends encore ${Math.ceil((result.reason === "cooldown" ? result.retryInMs : 0) / 1000)} s avant de redemander un code.`,

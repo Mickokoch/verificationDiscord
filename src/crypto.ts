@@ -25,13 +25,14 @@ export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
-// Correspondance exacte sur le domaine : `x@truc.fr` oui, `x@etu.truc.fr` non.
-export function isAllowedEmail(normalizedEmail: string, allowedDomain: string): boolean {
+// Correspondance exacte sur le domaine : avec `truc.fr` autorisé,
+// `x@truc.fr` oui, `x@etu.truc.fr` non (sauf s'il est lui aussi dans la liste).
+export function isAllowedEmail(normalizedEmail: string, allowedDomains: readonly string[]): boolean {
   const at = normalizedEmail.lastIndexOf("@");
   if (at <= 0 || normalizedEmail.indexOf("@") !== at) return false;
   const local = normalizedEmail.slice(0, at);
   const domain = normalizedEmail.slice(at + 1);
-  return domain === allowedDomain && local.length <= 64 && /^[^\s@<>()\[\],;:"\\]+$/.test(local);
+  return allowedDomains.includes(domain) && local.length <= 64 && /^[^\s@<>()\[\],;:"\\]+$/.test(local);
 }
 
 export function generateCode(): string {

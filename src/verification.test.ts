@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { loadConfig } from "./config.js";
 import { Hasher, isAllowedEmail, normalizeEmail } from "./crypto.js";
 import { SqliteLinkStore } from "./store.js";
 import { VerificationService, type VerificationLimits } from "./verification.js";
 
 const limits: VerificationLimits = {
-  allowedDomain: "truc.fr",
+  allowedDomains: ["truc.fr", "etu.truc.fr"],
   codeTtlMs: 10 * 60_000,
   codeMaxAttempts: 5,
   resendCooldownMs: 60_000,
@@ -48,12 +49,37 @@ async function verify(t: ReturnType<typeof setup>, memberId: string, email: stri
 
 test("normalisation et domaine : correspondance exacte, minuscules", () => {
   assert.equal(normalizeEmail("  Jean.Dupont@TRUC.fr "), "jean.dupont@truc.fr");
-  assert.ok(isAllowedEmail("jean.dupont@truc.fr", "truc.fr"));
-  assert.ok(!isAllowedEmail("jean@etu.truc.fr", "truc.fr"));
-  assert.ok(!isAllowedEmail("jean@truc.fr.evil.com", "truc.fr"));
-  assert.ok(!isAllowedEmail("@truc.fr", "truc.fr"));
-  assert.ok(!isAllowedEmail("a@b@truc.fr", "truc.fr"));
-  assert.ok(!isAllowedEmail("jean dupont@truc.fr", "truc.fr"));
+  assert.ok(isAllowedEmail("jean.dupont@truc.fr", ["truc.fr"]));
+  assert.ok(!isAllowedEmail("jean@etu.truc.fr", ["truc.fr"]));
+  assert.ok(!isAllowedEmail("jean@truc.fr.evil.com", ["truc.fr"]));
+  assert.ok(!isAllowedEmail("@truc.fr", ["truc.fr"]));
+  assert.ok(!isAllowedEmail("a@b@truc.fr", ["truc.fr"]));
+  assert.ok(!isAllowedEmail("jean dupont@truc.fr", ["truc.fr"]));
+});
+
+test("plusieurs domaines : chacun accepté, les autres refusés", () => {
+  const domains = ["truc.fr", "etu.truc.fr"];
+  assert.ok(isAllowedEmail("jean@truc.fr", domains));
+  assert.ok(isAllowedEmail("jean@etu.truc.fr", domains));
+  assert.ok(!isAllowedEmail("jean@prof.truc.fr", domains));
+  assert.ok(!isAllowedEmail("jean@gmail.com", domains));
+});
+
+test("configuration : liste de domaines nettoyée, ancienne variable acceptée", () => {
+  const base = {
+    DISCORD_TOKEN: "x",
+    GUILD_ID: "1",
+    VERIFIED_ROLE_ID: "2",
+    HMAC_SECRET: "ab".repeat(32),
+    GMAIL_USER: "bot@gmail.com",
+    GMAIL_APP_PASSWORD: "x",
+  };
+  assert.deepEqual(loadConfig({ ...base, ALLOWED_DOMAINS: " @Truc.fr, etu.truc.fr,,truc.fr " }).allowedDomains, [
+    "truc.fr",
+    "etu.truc.fr",
+  ]);
+  assert.deepEqual(loadConfig({ ...base, ALLOWED_DOMAIN: "truc.fr" }).allowedDomains, ["truc.fr"]);
+  assert.throws(() => loadConfig({ ...base, ALLOWED_DOMAINS: " , " }));
 });
 
 test("parcours nominal : code envoyé à l'adresse normalisée, puis membre vérifié", async () => {

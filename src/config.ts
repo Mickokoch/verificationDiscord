@@ -6,7 +6,7 @@ export interface Config {
   guildId: string;
   verifiedRoleId: string;
   logChannelId: string | null;
-  allowedDomain: string;
+  allowedDomains: string[];
   hmacSecret: Buffer;
   gmailUser: string;
   gmailAppPassword: string;
@@ -46,14 +46,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error("HMAC_SECRET doit faire au moins 32 octets en hexadécimal (64 caractères). Générer avec : openssl rand -hex 32");
   }
 
-  const allowedDomain = required(env, "ALLOWED_DOMAIN").toLowerCase().replace(/^@/, "");
+  // Liste séparée par des virgules. ALLOWED_DOMAIN (singulier) reste accepté.
+  const rawDomains = optional(env, "ALLOWED_DOMAINS") ?? required(env, "ALLOWED_DOMAIN");
+  const allowedDomains = [
+    ...new Set(
+      rawDomains
+        .split(",")
+        .map((domain) => domain.trim().toLowerCase().replace(/^@/, ""))
+        .filter(Boolean),
+    ),
+  ];
+  if (allowedDomains.length === 0) throw new Error("ALLOWED_DOMAINS ne contient aucun domaine");
 
   return {
     discordToken: required(env, "DISCORD_TOKEN"),
     guildId: required(env, "GUILD_ID"),
     verifiedRoleId: required(env, "VERIFIED_ROLE_ID"),
     logChannelId: optional(env, "LOG_CHANNEL_ID"),
-    allowedDomain,
+    allowedDomains,
     hmacSecret,
     gmailUser: required(env, "GMAIL_USER"),
     gmailAppPassword: required(env, "GMAIL_APP_PASSWORD").replace(/\s+/g, ""),

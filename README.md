@@ -1,6 +1,6 @@
 # Bot de vérification étudiante
 
-Un membre du serveur Discord prouve qu'il possède une adresse `@truc.fr` en recevant un code par mail. S'il saisit le bon code, il obtient le rôle « Étudiant vérifié ». Une adresse ne peut vérifier qu'un seul compte à la fois.
+Un membre du serveur Discord prouve qu'il possède une adresse de l'université (un ou plusieurs domaines, par ex. `@truc.fr`) en recevant un code par mail. S'il saisit le bon code, il obtient le rôle « Étudiant vérifié ». Une adresse ne peut vérifier qu'un seul compte à la fois.
 
 ## Commandes
 
@@ -21,6 +21,7 @@ Toutes les réponses du bot ne sont visibles que par l'utilisateur concerné. Le
 - La base SQLite contient **une seule table** : `HMAC(id Discord) → HMAC(adresse)`, sans date, sans pseudo, sans aucune donnée en clair.
 - La clé HMAC (`HMAC_SECRET`) est dans le `.env`, jamais dans la base. **Une base volée sans la clé est inutilisable.** En revanche, quelqu'un qui détient à la fois la base et la clé peut retrouver quelle adresse correspond à quel compte, en testant les adresses de la promo.
 - Avant le calcul de l'empreinte, les adresses sont passées en minuscules. `prenom.nom+1@truc.fr` est donc considérée comme une adresse différente : c'est un risque accepté.
+- Plusieurs domaines peuvent être acceptés (`ALLOWED_DOMAINS=truc.fr,etu.truc.fr`), en correspondance exacte : un sous-domaine qui n'est pas dans la liste est refusé. Si une même personne a une adresse sur chaque domaine (`jean@truc.fr` et `jean@etu.truc.fr`), ce sont deux adresses différentes pour le bot : c'est un risque accepté, comme pour les alias.
 - Le code et l'empreinte de l'adresse en attente restent **en mémoire uniquement**, et sont effacés à l'expiration du code (10 minutes).
 - Ni les logs ni le salon de logs ne contiennent d'adresse. Les erreurs d'envoi sont journalisées avec leur seul code d'erreur.
 - **Le compte Gmail est purgé** (tous les dossiers) juste après chaque envoi, puis toutes les heures. Les mails envoyés et les mails d'erreur contiennent en effet les adresses.
@@ -28,7 +29,7 @@ Toutes les réponses du bot ne sont visibles que par l'utilisateur concerné. Le
 ### Texte d'information à épingler dans le salon de vérification
 
 > **Vérification étudiante — tes données**
-> Pour obtenir le rôle, tape `/verify` et indique ton adresse `@truc.fr` : un code t'est envoyé par mail.
+> Pour obtenir le rôle, tape `/verify` et indique ton adresse universitaire : un code t'est envoyé par mail.
 > **Ce qui est conservé :** une empreinte chiffrée (HMAC) de ton adresse, associée à une empreinte de ton identifiant Discord. Rien n'est stocké en clair, et le mail envoyé est supprimé de notre boîte aussitôt après l'envoi.
 > **Pourquoi :** s'assurer qu'une adresse ne vérifie qu'un seul compte.
 > **Qui peut y accéder :** seul l'administrateur du bot, qui détient la clé, pourrait techniquement retrouver à quel compte correspond une adresse.
@@ -52,7 +53,7 @@ Toutes les réponses du bot ne sont visibles que par l'utilisateur concerné. Le
 3. Dans Gmail, ouvre Paramètres → Transfert et POP/IMAP :
    - **Accès IMAP** : activé
    - **Lorsqu'un message est marqué comme supprimé et retiré du dernier dossier IMAP visible** : *Supprimer définitivement le message immédiatement*
-4. **Teste la délivrabilité tôt** : vérifie que le code arrive bien sur une adresse `@truc.fr` et qu'il ne part pas en spam.
+4. **Teste la délivrabilité tôt** : vérifie que le code arrive bien sur une adresse de **chaque** domaine accepté et qu'il ne part pas en spam.
 
 ### 3. Configuration et lancement (Debian + Docker)
 
