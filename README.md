@@ -24,17 +24,18 @@ Toutes les réponses du bot ne sont visibles que par l'utilisateur concerné. Le
 - Plusieurs domaines peuvent être acceptés (`ALLOWED_DOMAINS=truc.fr,etu.truc.fr`), en correspondance exacte : un sous-domaine qui n'est pas dans la liste est refusé. Si une même personne a une adresse sur chaque domaine (`jean@truc.fr` et `jean@etu.truc.fr`), ce sont deux adresses différentes pour le bot : c'est un risque accepté, comme pour les alias.
 - Le code et l'empreinte de l'adresse en attente restent **en mémoire uniquement**, et sont effacés à l'expiration du code (10 minutes).
 - Ni les logs ni le salon de logs ne contiennent d'adresse. Les erreurs d'envoi sont journalisées avec leur seul code d'erreur.
-- **Le compte Gmail est purgé** (tous les dossiers) juste après chaque envoi, puis toutes les heures. Les mails envoyés et les mails d'erreur contiennent en effet les adresses.
+- Les messages du bot dans le salon de logs sont **supprimés au bout de 30 jours** (`LOG_RETENTION_DAYS`). Ceux des modérateurs ne sont pas touchés.
+- **Le compte Gmail est purgé** juste après chaque envoi, puis toutes les heures. Sont supprimés les mails **envoyés depuis ce compte** (y compris les réponses écrites depuis Gmail), les **mails d'erreur** (mailer-daemon, postmaster) et la **corbeille**. Les **mails reçus sont conservés**, car l'adresse du bot sert aussi de contact RGPD : pense à consulter sa boîte de réception.
 
 ### Texte d'information à épingler dans le salon de vérification
 
 > **Vérification étudiante — tes données**
 > Pour obtenir le rôle, tape `/verify` et indique ton adresse universitaire : un code t'est envoyé par mail.
-> **Ce qui est conservé :** une empreinte chiffrée (HMAC) de ton adresse, associée à une empreinte de ton identifiant Discord. Rien n'est stocké en clair, et le mail envoyé est supprimé de notre boîte aussitôt après l'envoi.
+> **Ce qui est conservé :** une empreinte cryptographique (HMAC) de ton adresse, associée à une empreinte de ton identifiant Discord. Ton adresse elle-même n'est pas stockée, et le mail envoyé est supprimé de notre boîte aussitôt après l'envoi. Le salon de logs des modérateurs indique qui s'est vérifié (sans adresse) ; ces messages sont supprimés au bout de 30 jours.
 > **Pourquoi :** s'assurer qu'une adresse ne vérifie qu'un seul compte.
 > **Qui peut y accéder :** seul l'administrateur du bot, qui détient la clé, pourrait techniquement retrouver à quel compte correspond une adresse.
 > **Suppression :** tape `/unlink` à tout moment. Tes données sont aussi supprimées automatiquement si tu quittes le serveur.
-> Pour toute question : contacte @admin.
+> **Contact :** l'adresse qui t'a envoyé le code.
 
 ## Installation
 
@@ -42,13 +43,13 @@ Toutes les réponses du bot ne sont visibles que par l'utilisateur concerné. Le
 
 1. Sur <https://discord.com/developers/applications>, crée une application, puis un bot. Copie son token dans `DISCORD_TOKEN`.
 2. Dans l'onglet **Bot**, active **Server Members Intent**. Le bot en a besoin pour détecter les départs et retrouver l'ancien compte lors d'un transfert.
-3. Dans **OAuth2 → URL Generator**, coche les scopes `bot` et `applications.commands`, et la permission **Gérer les rôles** (Manage Roles). Ouvre l'URL générée pour inviter le bot sur le serveur.
+3. Dans **OAuth2 → URL Generator**, coche les scopes `bot` et `applications.commands`, et les permissions **Gérer les rôles**, **Voir les salons**, **Envoyer des messages** et **Lire l'historique des messages** (nombre de permissions : `268504064`). Le bot a besoin de lire l'historique pour supprimer ses anciens messages du salon de logs. Ouvre l'URL générée pour inviter le bot sur le serveur.
 4. Dans les paramètres du serveur, section **Rôles**, place le rôle du bot **au-dessus** du rôle « Étudiant vérifié ». Le bot affiche un avertissement au démarrage si ce n'est pas le cas.
 5. Active le mode développeur dans Discord (Paramètres → Avancés), puis copie par clic droit les identifiants du serveur, du rôle et du salon de logs.
 
 ### 2. Compte Gmail
 
-1. Crée un **compte Gmail réservé au bot**, car tous ses mails seront supprimés.
+1. Crée un **compte Gmail réservé au bot** : tout ce qu'il envoie sera supprimé. Ce compte sert aussi d'adresse de contact, donc consulte régulièrement sa boîte de réception.
 2. Active la **validation en deux étapes**, puis crée un **mot de passe d'application** sur <https://myaccount.google.com/apppasswords>. Mets-le dans `GMAIL_APP_PASSWORD`.
 3. Dans Gmail, ouvre Paramètres → Transfert et POP/IMAP :
    - **Accès IMAP** : activé

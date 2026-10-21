@@ -5,6 +5,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ChatInputCommandInteraction,
+  DiscordAPIError,
   Client,
   Events,
   GatewayIntentBits,
@@ -13,7 +14,9 @@ import {
   ModalBuilder,
   Partials,
   PermissionFlagsBits,
+  RESTJSONErrorCodes,
   SlashCommandBuilder,
+  SnowflakeUtil,
   TextInputBuilder,
   TextInputStyle,
   type ButtonInteraction,
@@ -77,11 +80,24 @@ export class VerificationBot {
   // --- Démarrage ---------------------------------------------------------
 
   private async onReady(): Promise<void> {
-    const guild = await this.guild();
+    const guild = await this.guild().catch((error: unknown) => {
+      if (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownGuild) {
+        throw new Error(
+          `Serveur ${this.config.guildId} introuvable : soit le bot n'y a pas été invité, ` +
+            "soit GUILD_ID n'est pas l'identifiant du serveur (clic droit sur l'icône du serveur > Copier l'identifiant du serveur).",
+        );
+      }
+      throw error;
+    });
     await guild.commands.set(commands);
 
-    const role = await guild.roles.fetch(this.config.verifiedRoleId);
-    if (!role) throw new Error(`Rôle ${this.config.verifiedRoleId} introuvable sur le serveur`);
+    const role = await guild.roles.fetch(this.config.verifiedRoleId).catch(() => null);
+    if (!role) {
+      throw new Error(
+        `Rôle ${this.config.verifiedRoleId} introuvable sur « ${guild.name} » : vérifie VERIFIED_ROLE_ID ` +
+          "(Paramètres du serveur > Rôles > clic droit sur le rôle > Copier l'identifiant du rôle).",
+      );
+    }
     const me = await guild.members.fetchMe();
     if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) {
       console.warn("⚠️  Le bot n'a pas la permission « Gérer les rôles ».");
@@ -91,10 +107,16 @@ export class VerificationBot {
     }
 
     console.log(`Connecté en tant que ${this.client.user?.tag} sur « ${guild.name} ».`);
+
+    if (this.config.logChannelId) {
+      const prune = () => void this.pruneLogs().catch((error) => console.error("Échec du nettoyage du salon de logs :", error));
+      prune();
+      setInterval(prune, 24 * 3600_000).unref();
+    }
   }
 
   private fatal(error: unknown): void {
-    console.error("Erreur au démarrage :", error);
+    console.error("Erreur au démarrage :", error instanceof DiscordAPIError ? error : String(error));
     process.exit(1);
   }
 
@@ -319,6 +341,30 @@ export class VerificationBot {
     } catch (error) {
       console.error("Impossible d'écrire dans le salon de logs :", error);
     }
+  }
+
+  // Supprime les messages du bot plus anciens que LOG_RETENTION_DAYS dans le salon de logs.
+  // Les autres messages (ceux des modérateurs) ne sont pas touchés.
+  private async pruneLogs(): Promise<void> {
+    const channel = await this.client.channels.fetch(this.config.logChannelId!);
+    if (!channel?.isTextBased() || channel.isDMBased()) return;
+
+    const botId = this.client.user!.id;
+    // Ne parcourt que les messages antérieurs à la limite de conservation.
+    let before = SnowflakeUtil.generate({ timestamp: Date.now() - this.config.logRetentionMs }).toString();
+    let deleted = 0;
+    for (;;) {
+      const batch = await channel.messages.fetch({ limit: 100, before });
+      if (batch.size === 0) break;
+      for (const message of batch.values()) {
+        if (message.author.id === botId) {
+          await message.delete();
+          deleted += 1;
+        }
+      }
+      before = batch.lastKey()!;
+    }
+    if (deleted > 0) console.log(`Salon de logs : ${deleted} ancien(s) message(s) supprimé(s).`);
   }
 
   private async replyError(interaction: Interaction): Promise<void> {

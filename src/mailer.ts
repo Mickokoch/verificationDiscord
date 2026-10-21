@@ -1,7 +1,8 @@
 // Envoi des codes via Gmail (SMTP) et purge de la boîte via IMAP.
 //
-// Le compte Gmail doit être réservé au bot : la purge supprime TOUS les messages
-// (envoyés, reçus, mails d'erreur, corbeille), car ils contiennent les adresses.
+// Le compte Gmail doit être réservé au bot : la purge supprime tous les mails envoyés
+// depuis ce compte, les mails d'erreur et la corbeille, car ils contiennent les adresses.
+// Les mails reçus sont conservés : l'adresse sert aussi de contact RGPD.
 
 import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
@@ -10,6 +11,7 @@ export interface MailerOptions {
   user: string;
   appPassword: string;
   fromName: string;
+  footer: string;
   codeTtlMinutes: number;
 }
 
@@ -33,16 +35,19 @@ export class GmailMailer {
 
   // Le mail ne mentionne jamais le pseudo Discord du demandeur.
   async sendCode(email: string, code: string): Promise<void> {
-    const { fromName, user, codeTtlMinutes } = this.options;
+    const { fromName, user, codeTtlMinutes, footer } = this.options;
     await this.transport.sendMail({
       from: { name: fromName, address: user },
       to: email,
-      subject: `Ton code de vérification : ${code}`,
+      subject: `Votre code de vérification : ${code}`,
       text: [
-        `Ton code de vérification Discord est : ${code}`,
+        `Votre code de vérification Discord est : ${code}`,
         "",
         `Il est valable ${codeTtlMinutes} minutes.`,
-        "Si tu n'as rien demandé, ignore simplement ce mail.",
+        "Si vous n'avez rien demandé, ignorez simplement ce mail.",
+        "",
+        "—",
+        footer,
       ].join("\n"),
     });
   }
@@ -79,15 +84,27 @@ export class GmailMailer {
     try {
       const mailboxes = await client.list();
       const byFlag = (flag: string) => mailboxes.find((box) => box.specialUse === flag)?.path;
-      // La corbeille en dernier : sur Gmail, supprimer ailleurs peut y déplacer les messages.
-      const targets = ["INBOX", byFlag("\\Sent"), byFlag("\\Junk"), byFlag("\\All"), byFlag("\\Trash")];
 
-      for (const path of targets) {
+      // Seuls les mails qui contiennent des adresses sont supprimés : ceux envoyés
+      // par le bot et les mails d'erreur. Les messages reçus (contact RGPD) restent.
+      const containsAddresses = {
+        or: [{ from: this.options.user }, { from: "mailer-daemon" }, { from: "postmaster" }],
+      };
+      const targets: [string | undefined, typeof containsAddresses | "1:*"][] = [
+        ["INBOX", containsAddresses],
+        [byFlag("\\Sent"), containsAddresses],
+        [byFlag("\\Junk"), containsAddresses],
+        [byFlag("\\All"), containsAddresses],
+        // La corbeille en dernier et en entier : sur Gmail, supprimer ailleurs peut y déplacer les messages.
+        [byFlag("\\Trash"), "1:*"],
+      ];
+
+      for (const [path, range] of targets) {
         if (!path) continue;
         const lock = await client.getMailboxLock(path);
         try {
           if (client.mailbox && client.mailbox.exists > 0) {
-            await client.messageDelete("1:*");
+            await client.messageDelete(range);
           }
         } finally {
           lock.release();

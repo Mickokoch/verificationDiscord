@@ -1,16 +1,28 @@
 // Lecture et validation de la configuration (variables d'environnement).
 // Le bot refuse de démarrer si une valeur obligatoire manque ou est invalide.
 
+function defaultMailFooter(contact: string): string {
+  return [
+    "Ce mail vous a été envoyé par le bot de vérification du serveur Discord « étudiant·es de SU Sciences », " +
+      "géré par des étudiant·es et non affilié à Sorbonne Université.",
+    "Seule une empreinte cryptographique de votre adresse est enregistrée, afin qu'une même adresse ne puisse " +
+      "vérifier qu'un seul compte ; votre adresse elle-même n'est pas stockée. Vous pouvez supprimer votre " +
+      `vérification à tout moment avec la commande /unlink sur le serveur. Contact : ${contact}`,
+  ].join("\n");
+}
+
 export interface Config {
   discordToken: string;
   guildId: string;
   verifiedRoleId: string;
   logChannelId: string | null;
+  logRetentionMs: number;
   allowedDomains: string[];
   hmacSecret: Buffer;
   gmailUser: string;
   gmailAppPassword: string;
   mailFromName: string;
+  mailFooter: string;
   dbPath: string;
   codeTtlMs: number;
   codeMaxAttempts: number;
@@ -58,16 +70,21 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   ];
   if (allowedDomains.length === 0) throw new Error("ALLOWED_DOMAINS ne contient aucun domaine");
 
+  const gmailUser = required(env, "GMAIL_USER");
+
   return {
     discordToken: required(env, "DISCORD_TOKEN"),
     guildId: required(env, "GUILD_ID"),
     verifiedRoleId: required(env, "VERIFIED_ROLE_ID"),
     logChannelId: optional(env, "LOG_CHANNEL_ID"),
+    logRetentionMs: positiveInt(env, "LOG_RETENTION_DAYS", 30) * 24 * 3600_000,
     allowedDomains,
     hmacSecret,
-    gmailUser: required(env, "GMAIL_USER"),
+    gmailUser,
     gmailAppPassword: required(env, "GMAIL_APP_PASSWORD").replace(/\s+/g, ""),
     mailFromName: optional(env, "MAIL_FROM_NAME") ?? "Vérification Discord",
+    // Pied de mail ; `\n` dans la variable = retour à la ligne.
+    mailFooter: (optional(env, "MAIL_FOOTER") ?? defaultMailFooter(gmailUser)).replaceAll("\\n", "\n"),
     dbPath: optional(env, "DB_PATH") ?? "./data/verification.sqlite",
     codeTtlMs: positiveInt(env, "CODE_TTL_MINUTES", 10) * 60_000,
     codeMaxAttempts: positiveInt(env, "CODE_MAX_ATTEMPTS", 5),

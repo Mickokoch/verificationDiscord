@@ -14,6 +14,7 @@ const mailer = new GmailMailer({
   user: config.gmailUser,
   appPassword: config.gmailAppPassword,
   fromName: config.mailFromName,
+  footer: config.mailFooter,
   codeTtlMinutes: Math.round(config.codeTtlMs / 60_000),
 });
 
