@@ -55,14 +55,22 @@ Toutes les réponses du bot ne sont visibles que par l'utilisateur concerné. Le
    - **Lorsqu'un message est marqué comme supprimé et retiré du dernier dossier IMAP visible** : *Supprimer définitivement le message immédiatement*
 4. **Teste la délivrabilité tôt** : vérifie que le code arrive bien sur une adresse de **chaque** domaine accepté et qu'il ne part pas en spam.
 
-### 3. Configuration et lancement (Debian + Docker)
+### 3. Déploiement
 
+Toute la configuration Docker (volume, redémarrage, logs, variables) est dans [docker-compose.yml](docker-compose.yml). La base est stockée dans le volume nommé `verification-data`, qui est conservé entre les redéploiements.
+
+**Sur Coolify**
+1. New Resource → Private Repository, puis choisis le dépôt.
+2. **Build Pack : Docker Compose**. Docker Compose Location : `/docker-compose.yml`.
+3. Dans **Environment Variables**, Coolify affiche les variables lues dans le compose. Les variables marquées comme requises doivent être remplies (voir [.env.example](.env.example)).
+4. Ne mets **aucun domaine** : le bot n'a pas de serveur web.
+5. Clique sur **Deploy**. Les logs doivent afficher « Connecté en tant que … ».
+
+**En local ou sur un serveur sans Coolify**
 ```bash
 cp .env.example .env
 openssl rand -hex 32          # à copier dans HMAC_SECRET (et dans ton gestionnaire de mots de passe)
 nano .env                     # remplir le reste
-
-mkdir -p data && sudo chown 1000:1000 data   # le conteneur tourne avec l'utilisateur 1000
 docker compose up -d --build
 docker compose logs -f        # doit afficher « Connecté en tant que … »
 ```
@@ -72,13 +80,13 @@ Les commandes slash sont enregistrées automatiquement au démarrage.
 ## Sauvegardes
 
 - **La clé `HMAC_SECRET`** : sauvegardée une seule fois dans un gestionnaire de mots de passe. **Jamais au même endroit que la base.**
-- **La base** : une copie quotidienne vers une autre machine, par exemple avec une tâche cron sur l'hôte (le paquet `sqlite3` doit être installé) :
+- **La base** : une copie quotidienne vers une autre machine. Sur l'hôte, une tâche cron fait une copie cohérente dans le volume, puis l'envoie ailleurs. `docker ps` donne le nom du conteneur, et `docker volume ls | grep verification-data` celui du volume (Coolify y ajoute un préfixe).
 
 ```cron
-0 4 * * * cd /chemin/vers/bot && sqlite3 data/verification.sqlite ".backup data/backup.sqlite" && rsync -a data/backup.sqlite autre-machine:sauvegardes/verification.sqlite
+0 4 * * * docker exec <conteneur> node -e "new (require('better-sqlite3'))('/data/verification.sqlite').backup('/data/backup.sqlite')" && rsync -a /var/lib/docker/volumes/<volume>/_data/backup.sqlite autre-machine:sauvegardes/verification.sqlite
 ```
 
-Si la clé est perdue, il faut tout réinitialiser : supprimer `data/verification.sqlite` et générer une nouvelle clé. Les rôles déjà attribués restent en place, mais toutes les adresses redeviennent libres.
+Si la clé est perdue, il faut tout réinitialiser : supprimer `/data/verification.sqlite` dans le volume et générer une nouvelle clé. Les rôles déjà attribués restent en place, mais toutes les adresses redeviennent libres.
 
 ## Développement
 

@@ -1,14 +1,35 @@
+# Fonctionne tel quel sur Coolify (build pack « Docker Compose ») et en local.
+# Les valeurs viennent de l'environnement : variables Coolify, ou fichier .env
+# en local (lu automatiquement par `docker compose`).
+# `:?` = obligatoire (Coolify la signale comme requise), `:-` = valeur par défaut.
 services:
   bot:
     build: .
-    container_name: verification-bot
     restart: unless-stopped
     init: true
-    env_file: .env
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?}
+      GUILD_ID: ${GUILD_ID:?}
+      VERIFIED_ROLE_ID: ${VERIFIED_ROLE_ID:?}
+      LOG_CHANNEL_ID: ${LOG_CHANNEL_ID:-}
+      ALLOWED_DOMAINS: ${ALLOWED_DOMAINS:?}
+      HMAC_SECRET: ${HMAC_SECRET:?}
+      GMAIL_USER: ${GMAIL_USER:?}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:?}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Vérification Discord}
+      CODE_TTL_MINUTES: ${CODE_TTL_MINUTES:-10}
+      CODE_MAX_ATTEMPTS: ${CODE_MAX_ATTEMPTS:-5}
+      RESEND_COOLDOWN_SECONDS: ${RESEND_COOLDOWN_SECONDS:-60}
+      MAX_MAILS_PER_MEMBER_PER_DAY: ${MAX_MAILS_PER_MEMBER_PER_DAY:-5}
+      PURGE_INTERVAL_MINUTES: ${PURGE_INTERVAL_MINUTES:-60}
     volumes:
-      - ./data:/data
+      # Volume nommé : conservé entre les redéploiements.
+      - verification-data:/data
     logging:
       driver: json-file
       options:
         max-size: "5m"
         max-file: "3"
+
+volumes:
+  verification-data:
