@@ -114,3 +114,7 @@ Organisation du code :
 - Les versions des dépendances sont **figées** (`package-lock.json`), donc rien ne change sans action de ta part. Pour mettre à jour : `npm outdated`, puis une version à la fois, `npm test`, et un test réel sur le serveur.
 - discord.js v14 est la version stable actuelle. C'est Discord qui retire ses anciennes API, donc il faudra probablement migrer vers une nouvelle version majeure tous les 2 ou 3 ans.
 - L'image Docker utilise Node 24 (LTS). Il faudra changer `node:24-slim` dans le `Dockerfile` quand cette version arrivera en fin de support (avril 2028).
+
+## Licence
+
+[0BSD](LICENSE) : libre de toute utilisation (copie, modification, usage commercial…), sans obligation de citer l'auteur. Fourni tel quel, sans garantie.

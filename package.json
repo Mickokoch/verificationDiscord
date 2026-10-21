@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Bot Discord de vérification des adresses étudiantes",
+  "license": "0BSD",
   "type": "module",
   "main": "dist/index.js",
   "engines": {
