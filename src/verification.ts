@@ -19,7 +19,7 @@ export interface VerificationLimits {
 
 export type StartResult =
   | { ok: true }
-  | { ok: false; reason: "already_verified" | "invalid_email" | "daily_limit" | "mail_failed" }
+  | { ok: false; reason: "invalid_email" | "daily_limit" | "mail_failed" }
   | { ok: false; reason: "cooldown"; retryInMs: number };
 
 export type ConfirmResult =
@@ -52,13 +52,14 @@ export class VerificationService {
     private readonly now: () => number = Date.now,
   ) {}
 
-  isVerified(memberId: string): boolean {
+  // Le membre a-t-il une adresse liée en base ? (Ne décide pas de l'accès.)
+  isLinked(memberId: string): boolean {
     return this.store.hasMember(this.hasher.member(memberId));
   }
 
+  // L'accès est décidé par le rôle « vérifié » (côté Discord), pas par la base :
+  // un membre présent en base mais dont le rôle a été retiré peut se revérifier.
   async start(memberId: string, rawEmail: string): Promise<StartResult> {
-    if (this.isVerified(memberId)) return { ok: false, reason: "already_verified" };
-
     const email = normalizeEmail(rawEmail);
     if (!isAllowedEmail(email, this.limits.allowedDomains)) return { ok: false, reason: "invalid_email" };
 

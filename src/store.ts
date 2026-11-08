@@ -1,5 +1,5 @@
-// Stockage persistant : une seule table `HMAC(id Discord) -> HMAC(adresse)`.
-// Pas de date, pas de pseudo, pas d'adresse en clair.
+// Stockage persistant : la table `links` (`HMAC(id Discord) -> HMAC(adresse)`, sans date,
+// sans pseudo, sans adresse en clair) et quelques réglages du bot (`settings`).
 
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
@@ -15,7 +15,13 @@ export interface LinkStore {
   count(): number;
 }
 
-export class SqliteLinkStore implements LinkStore {
+// Réglages internes du bot (ex. : emplacement du message de choix des rôles).
+export interface SettingsStore {
+  getSetting(key: string): string | null;
+  setSetting(key: string, value: string): void;
+}
+
+export class SqliteLinkStore implements LinkStore, SettingsStore {
   private readonly db: Database.Database;
 
   constructor(path: string) {
@@ -26,6 +32,10 @@ export class SqliteLinkStore implements LinkStore {
       CREATE TABLE IF NOT EXISTS links (
         member_hash TEXT PRIMARY KEY,
         email_hash  TEXT NOT NULL UNIQUE
+      ) WITHOUT ROWID;
+      CREATE TABLE IF NOT EXISTS settings (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
       ) WITHOUT ROWID;
     `);
   }
@@ -56,6 +66,17 @@ export class SqliteLinkStore implements LinkStore {
 
   count(): number {
     return (this.db.prepare("SELECT COUNT(*) AS n FROM links").get() as { n: number }).n;
+  }
+
+  getSetting(key: string): string | null {
+    const row = this.db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+    return row?.value ?? null;
+  }
+
+  setSetting(key: string, value: string): void {
+    this.db
+      .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .run(key, value);
   }
 
   close(): void {

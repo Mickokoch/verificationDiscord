@@ -24,6 +24,7 @@ export interface Config {
   mailFromName: string;
   mailFooter: string;
   dbPath: string;
+  rolesConfigPath: string;
   codeTtlMs: number;
   codeMaxAttempts: number;
   resendCooldownMs: number;
@@ -86,6 +87,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // Pied de mail ; `\n` dans la variable = retour à la ligne.
     mailFooter: (optional(env, "MAIL_FOOTER") ?? defaultMailFooter(gmailUser)).replaceAll("\\n", "\n"),
     dbPath: optional(env, "DB_PATH") ?? "./data/verification.sqlite",
+    rolesConfigPath: optional(env, "ROLES_CONFIG_PATH") ?? "./roles.json",
     codeTtlMs: positiveInt(env, "CODE_TTL_MINUTES", 10) * 60_000,
     codeMaxAttempts: positiveInt(env, "CODE_MAX_ATTEMPTS", 5),
     resendCooldownMs: positiveInt(env, "RESEND_COOLDOWN_SECONDS", 60) * 1000,

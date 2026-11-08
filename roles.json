@@ -1,0 +1,19 @@
+[
+  {
+    "label": "Ton niveau",
+    "max": 1,
+    "roles": []
+  },
+  {
+    "label": "Tes domaines d'études",
+    "roles": []
+  },
+  {
+    "label": "Cursus particuliers",
+    "roles": []
+  },
+  {
+    "label": "Salons supplémentaires",
+    "roles": []
+  }
+]

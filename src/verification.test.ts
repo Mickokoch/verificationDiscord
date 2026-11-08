@@ -36,6 +36,7 @@ function setup(overrides: Partial<VerificationLimits> = {}) {
     service,
     store,
     sent,
+    isLinked: (memberId: string) => store.hasMember(hasher.member(memberId)),
     lastCode: () => sent.at(-1)!.code,
     advance: (ms: number) => (now += ms),
     failNextSend: () => (failNextSend = true),
@@ -87,7 +88,7 @@ test("parcours nominal : code envoyé à l'adresse normalisée, puis membre vér
   assert.deepEqual(await verify(t, "111", "Jean.Dupont@truc.fr"), { ok: true, previousMemberHash: null });
   assert.equal(t.sent[0]!.email, "jean.dupont@truc.fr");
   assert.match(t.sent[0]!.code, /^\d{6}$/);
-  assert.ok(t.service.isVerified("111"));
+  assert.ok(t.isLinked("111"));
 });
 
 test("la base ne contient aucune donnée en clair", async () => {
@@ -107,10 +108,23 @@ test("domaine refusé : aucun mail envoyé", async () => {
   assert.equal(t.sent.length, 0);
 });
 
-test("déjà vérifié : /verify refusé", async () => {
+test("revérification d'un membre déjà en base : sa nouvelle adresse remplace l'ancienne", async () => {
   const t = setup();
   await verify(t, "111", "jean@truc.fr");
-  assert.deepEqual(await t.service.start("111", "autre@truc.fr"), { ok: false, reason: "already_verified" });
+  t.advance(60_000);
+  assert.deepEqual(await verify(t, "111", "jean.dupont@truc.fr"), { ok: true, previousMemberHash: null });
+  assert.equal(t.store.count(), 1);
+  // L'ancienne adresse est libérée.
+  t.advance(60_000);
+  assert.deepEqual(await verify(t, "222", "jean@truc.fr"), { ok: true, previousMemberHash: null });
+});
+
+test("même adresse, même membre : pas de transfert", async () => {
+  const t = setup();
+  await verify(t, "111", "jean@truc.fr");
+  t.advance(60_000);
+  assert.deepEqual(await verify(t, "111", "jean@truc.fr"), { ok: true, previousMemberHash: null });
+  assert.equal(t.store.count(), 1);
 });
 
 test("délai entre deux envois et limite quotidienne", async () => {
@@ -164,8 +178,8 @@ test("même adresse sur un nouveau compte : transfert, l'ancien compte est renvo
   const result = await verify(t, "222", "JEAN@truc.fr");
   assert.equal(result.ok, true);
   assert.equal(result.ok && result.previousMemberHash, new Hasher(Buffer.alloc(32, 7)).member("111"));
-  assert.ok(!t.service.isVerified("111"));
-  assert.ok(t.service.isVerified("222"));
+  assert.ok(!t.isLinked("111"));
+  assert.ok(t.isLinked("222"));
   assert.equal(t.store.count(), 1);
 });
 

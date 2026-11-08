@@ -4,10 +4,12 @@ import { VerificationBot } from "./bot.js";
 import { loadConfig } from "./config.js";
 import { Hasher } from "./crypto.js";
 import { GmailMailer } from "./mailer.js";
+import { loadRoleGroups } from "./roles.js";
 import { SqliteLinkStore } from "./store.js";
 import { VerificationService } from "./verification.js";
 
 const config = loadConfig();
+const roleGroups = loadRoleGroups(config.rolesConfigPath);
 const hasher = new Hasher(config.hmacSecret);
 const store = new SqliteLinkStore(config.dbPath);
 const mailer = new GmailMailer({
@@ -57,7 +59,7 @@ try {
   process.exit(1);
 }
 
-const bot = new VerificationBot(config, service, hasher);
+const bot = new VerificationBot(config, service, hasher, roleGroups, store);
 console.log(`Base chargée : ${store.count()} vérification(s) enregistrée(s).`);
 
 purge();

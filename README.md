@@ -7,18 +7,45 @@ Un membre du serveur Discord prouve qu'il possède une adresse de l'université 
 | Commande | Qui | Effet |
 |---|---|---|
 | `/verify` | Tout le monde | Ouvre un formulaire pour l'adresse et envoie un code à 6 chiffres. Le bouton « Entrer le code » ouvre ensuite un second formulaire, et le rôle est attribué si le code est bon. |
-| `/unlink` | Membres vérifiés | Après confirmation, supprime la vérification et retire le rôle. |
-| `/forget membre:@x` | Admins (permission « Gérer les rôles ») | Supprime la vérification d'un membre, lui retire le rôle et libère son adresse. Sert à débloquer les cas particuliers. |
+| `/unlink` | Membres vérifiés | Après confirmation, supprime la vérification et retire le rôle vérifié et les rôles au choix. |
+| `/forget membre:@x` | Admins (permission « Gérer les rôles ») | Supprime la vérification d'un membre, lui retire ses rôles et libère son adresse. Sert à débloquer les cas particuliers. |
+| `/setup-roles` | Admins (permission « Gérer le serveur ») | Publie dans le salon courant le message de choix des rôles. Relancée dans un autre salon, elle déplace le message. |
+| `/roles-config` | Admins (permission « Gérer le serveur ») | Affiche la configuration de `roles.json` et signale les problèmes (rôle supprimé, rôle placé au-dessus du bot…). |
 
 Comportements automatiques :
 - **Même adresse sur un nouveau compte** : le nouveau compte obtient le rôle et l'ancien le perd. Ça couvre les comptes perdus ou changés, et empêche de prêter son adresse.
 - **Départ du serveur** : la vérification est supprimée. Si le bot était éteint au moment du départ, la ligne reste, mais le transfert automatique règle le cas si la personne revient.
+- **Vérification manuelle** : c'est le **rôle vérifié** qui donne l'accès, pas la base. Un admin peut donc vérifier quelqu'un à la main en lui donnant ce rôle. Retirer le rôle n'est pas une sanction : la personne peut refaire `/verify`. Pour sanctionner, il faut expulser ou bannir.
+- **Rôles au choix réservés aux vérifiés** : un membre sans le rôle vérifié perd automatiquement ses rôles de `roles.json`, qu'ils viennent de l'onboarding, d'un modo ou d'un rôle vérifié retiré. Le bot refait ce contrôle sur tout le serveur à chaque démarrage.
+
+## Rôles au choix (niveau, domaines…)
+
+Les membres vérifiés choisissent leurs rôles avec le bouton **« Choisir mes rôles »**. Ce bouton se trouve dans le message publié par `/setup-roles` et dans le message de vérification réussie. Il ouvre un message visible seulement par la personne, avec un menu déroulant par groupe. Chaque changement s'applique tout de suite.
+
+Les groupes sont définis dans [roles.json](roles.json) :
+
+```json
+[
+  { "label": "Ton niveau", "max": 1, "roles": ["1561460000000000001", "1561460000000000002"] },
+  { "label": "Tes domaines d'études", "roles": ["1561460000000000011", "1561460000000000012"] },
+  { "label": "Salons supplémentaires", "roles": [{ "id": "1561460000000000021", "description": "Salons jeux et jeux vidéo" }] }
+]
+```
+
+- `roles` contient des **identifiants** de rôles (clic droit sur le rôle → Copier l'identifiant du rôle). Le **nom** et la **couleur** affichés viennent de Discord : renommer un rôle sur Discord le renomme aussi dans le menu, sans redéploiement.
+- `max` est facultatif : c'est le nombre maximum de choix dans le groupe (`1` = choix unique). Sans `max`, tous les choix sont possibles.
+- `description` est facultative : c'est un petit texte sous le nom du rôle (100 caractères au maximum).
+- Limites de Discord : **5 groupes** et **25 rôles par groupe**. Un groupe sans rôle est ignoré.
+- Le bot ne crée et ne supprime aucun rôle : il attribue des rôles existants. Les permissions des salons se règlent sur Discord.
+- **Pour modifier** : édite le fichier, puis commit, push et redéploie. Le message permanent est mis à jour automatiquement au redémarrage, et les menus suivent la nouvelle configuration. Un rôle retiré du fichier n'est plus géré par le bot : les membres qui l'ont le gardent. Pour le retirer à tout le monde, supprime-le sur Discord.
+- Chaque rôle de `roles.json` doit être placé **sous** le rôle du bot. Au démarrage, les logs signalent les problèmes, et `/roles-config` aussi.
+- Les rôles de `roles.json` ne doivent **plus être proposés dans l'onboarding** de Discord. Sinon, le bot les retire aussitôt aux non-vérifiés.
 
 Toutes les réponses du bot ne sont visibles que par l'utilisateur concerné. Les adresses ne passent jamais par les messages privés ni par un salon.
 
 ## Données et vie privée
 
-- La base SQLite contient **une seule table** : `HMAC(id Discord) → HMAC(adresse)`, sans date, sans pseudo, sans aucune donnée en clair.
+- La base SQLite contient la table `HMAC(id Discord) → HMAC(adresse)`, sans date, sans pseudo, sans aucune donnée en clair. Elle contient aussi une table de réglages internes (l'emplacement du message de choix des rôles), sans aucune donnée personnelle.
 - La clé HMAC (`HMAC_SECRET`) est dans le `.env`, jamais dans la base. **Une base volée sans la clé est inutilisable.** En revanche, quelqu'un qui détient à la fois la base et la clé peut retrouver quelle adresse correspond à quel compte, en testant les adresses de la promo.
 - Avant le calcul de l'empreinte, les adresses sont passées en minuscules. `prenom.nom+1@truc.fr` est donc considérée comme une adresse différente : c'est un risque accepté.
 - Plusieurs domaines peuvent être acceptés (`ALLOWED_DOMAINS=truc.fr,etu.truc.fr`), en correspondance exacte : un sous-domaine qui n'est pas dans la liste est refusé. Si une même personne a une adresse sur chaque domaine (`jean@truc.fr` et `jean@etu.truc.fr`), ce sont deux adresses différentes pour le bot : c'est un risque accepté, comme pour les alias.
@@ -43,8 +70,8 @@ Toutes les réponses du bot ne sont visibles que par l'utilisateur concerné. Le
 
 1. Sur <https://discord.com/developers/applications>, crée une application, puis un bot. Copie son token dans `DISCORD_TOKEN`.
 2. Dans l'onglet **Bot**, active **Server Members Intent**. Le bot en a besoin pour détecter les départs et retrouver l'ancien compte lors d'un transfert.
-3. Dans **OAuth2 → URL Generator**, coche les scopes `bot` et `applications.commands`, et les permissions **Gérer les rôles**, **Voir les salons**, **Envoyer des messages** et **Lire l'historique des messages** (nombre de permissions : `268504064`). Le bot a besoin de lire l'historique pour supprimer ses anciens messages du salon de logs. Ouvre l'URL générée pour inviter le bot sur le serveur.
-4. Dans les paramètres du serveur, section **Rôles**, place le rôle du bot **au-dessus** du rôle « Étudiant vérifié ». Le bot affiche un avertissement au démarrage si ce n'est pas le cas.
+3. Dans **OAuth2 → URL Generator**, coche les scopes `bot` et `applications.commands`, et les permissions **Gérer les rôles**, **Voir les salons**, **Envoyer des messages**, **Intégrer des liens** et **Lire l'historique des messages** (nombre de permissions : `268520448`). Le bot a besoin de lire l'historique pour supprimer ses anciens messages du salon de logs, et d'intégrer des liens pour l'encadré du message de choix des rôles. Ouvre l'URL générée pour inviter le bot sur le serveur.
+4. Dans les paramètres du serveur, section **Rôles**, place le rôle du bot **au-dessus** du rôle « Étudiant vérifié » **et de tous les rôles de `roles.json`**. Le bot affiche un avertissement au démarrage si ce n'est pas le cas.
 5. Active le mode développeur dans Discord (Paramètres → Avancés), puis copie par clic droit les identifiants du serveur, du rôle et du salon de logs.
 
 ### 2. Compte Gmail
@@ -102,9 +129,10 @@ Organisation du code :
 | Fichier | Rôle |
 |---|---|
 | `src/index.ts` | Assemble les modules, lance les tâches périodiques (purge, nettoyage) |
-| `src/bot.ts` | Partie Discord : commandes, formulaires, boutons, départs |
+| `src/bot.ts` | Partie Discord : commandes, formulaires, boutons, menus de rôles, garde-fou, départs |
 | `src/verification.ts` | Logique de vérification : quotas, codes, transfert. Indépendante de Discord et testée. |
-| `src/store.ts` | Base SQLite (`links`) |
+| `src/store.ts` | Base SQLite (`links`, `settings`) |
+| `src/roles.ts` | Lecture de `roles.json` et calcul des rôles à ajouter ou retirer. Testé. |
 | `src/crypto.ts` | HMAC, normalisation des adresses, codes |
 | `src/mailer.ts` | Envoi par SMTP Gmail et purge IMAP |
 | `src/config.ts` | Lecture et validation du `.env` |
