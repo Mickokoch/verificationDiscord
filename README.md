@@ -20,6 +20,8 @@ Comportements automatiques :
 
 ## Rôles au choix (niveau, domaines…)
 
+> 📘 **Pour modifier les rôles sans connaissances techniques, suivez le [guide pas à pas](GUIDE-ROLES.md).**
+
 Les membres vérifiés choisissent leurs rôles avec le bouton **« Choisir mes rôles »**. Ce bouton se trouve dans le message publié par `/setup-roles` et dans le message de vérification réussie. Il ouvre un message visible seulement par la personne, avec un menu déroulant par groupe. Chaque changement s'applique tout de suite.
 
 Les groupes sont définis dans [roles.json](roles.json) :
